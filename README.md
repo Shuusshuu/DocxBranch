@@ -62,12 +62,27 @@ Open `http://localhost:8501` in your browser.
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
+## Implemented Features
+
+- DOCX file validation and paragraph preview
+- SQLite-backed project management
+- Persistent storage of original DOCX files
+- Initial official document baseline (v1.0)
+- SHA-256 file integrity verification
+- Document retrieval and download
+- Duplicate initial baseline protection
+- Automated tests with pytest
+
 ## Current Limitations
 
-- Only non-empty body paragraphs and headings are displayed.
-- Tables, images, comments, and tracked changes are not included in the preview.
-- Uploaded documents are not yet stored as official versions.
-- User authentication, review workflows, and document merging are not yet implemented.
+- Local prototype without user authentication
+- Only body paragraphs and headings are previewed
+- DOCX formatting is preserved in storage but not rendered
+  in the preview
+- No employee submission or reviewer workflow yet
+- No change comparison, conflict resolution, or merging
+- No publication of subsequent official versions yet
+- Database-level immutability enforcement is not complete
 
 ## Planned Features
 
