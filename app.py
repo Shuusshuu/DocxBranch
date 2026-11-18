@@ -23,7 +23,9 @@ from docxbranch.submissions import (
     list_submissions,
 )
 from docxbranch.diff import DiffError, compare_docx_bytes
-
+from docxbranch.safety import inspect_comparison
+from xml.etree.ElementTree import ParseError
+from zipfile import BadZipFile
 
 st.set_page_config(
     page_title="DocxBranch",
@@ -415,6 +417,15 @@ else:
                     submission_b["id"]
                 )
 
+                safety_reports = inspect_comparison(
+                    selected_document["name"],
+                    baseline_content,
+                    submission_a["filename"],
+                    content_a,
+                    submission_b["filename"],
+                    content_b,
+                )
+
                 result = compare_docx_bytes(
                     selected_document["name"],
                     baseline_content,
@@ -423,6 +434,28 @@ else:
                     submission_b["filename"],
                     content_b,
                 )
+
+                st.subheader("DOCX Safety Assessment")
+                st.warning(
+                    "Automatic merging is disabled. "
+                    "The current comparison only analyzes non-empty "
+                    "body paragraphs and paragraph styles."
+                )
+
+                for role, report in safety_reports.items():
+                    with st.expander(
+                        f"{role}: "
+                        f"{len(report.issues)} detected limitation(s)"
+                    ):
+                        if report.issues:
+                            for issue in report.issues:
+                                st.write(f"- {issue}")
+                        else:
+                            st.info(
+                                "No known unsupported structures were "
+                                "detected. This does not guarantee "
+                                "merge safety."
+                            )
 
                 st.subheader("Comparison Summary")
 
@@ -513,5 +546,5 @@ else:
                     "No document has been merged or published."
                 )
 
-            except (DiffError, VersionError, DocumentError) as error:
+            except (DiffError, VersionError, DocumentError, ParseError, BadZipFile) as error:
                 st.error(str(error))
