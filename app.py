@@ -22,6 +22,7 @@ from docxbranch.submissions import (
     get_submission_content,
     list_submissions,
 )
+from docxbranch.diff import DiffError, compare_docx_bytes
 
 
 st.set_page_config(
@@ -338,3 +339,179 @@ else:
 
                     except VersionError as error:
                         st.error(str(error))
+
+# Compare employee submissions against their common baseline.
+st.divider()
+st.header("Compare Submissions")
+
+if len(submissions) < 2:
+    st.info(
+        "At least two submissions are required for comparison."
+    )
+else:
+    submission_options = {
+        (
+            f"#{item['id']} - {item['author']} - "
+            f"{item['filename']}"
+        ): item
+        for item in submissions
+    }
+
+    labels = list(submission_options.keys())
+
+    selected_a_label = st.selectbox(
+        "First Submission",
+        options=labels,
+        index=0,
+        key="compare_submission_a",
+    )
+
+    selected_b_label = st.selectbox(
+        "Second Submission",
+        options=labels,
+        index=1,
+        key="compare_submission_b",
+    )
+
+    submission_a = submission_options[selected_a_label]
+    submission_b = submission_options[selected_b_label]
+
+    if st.button(
+        "Compare Changes",
+        type="primary",
+        key="compare_changes_button",
+    ):
+        if submission_a["id"] == submission_b["id"]:
+            st.error("Please select two different submissions.")
+
+        elif (
+            submission_a["baseline_version_id"]
+            != submission_b["baseline_version_id"]
+        ):
+            st.error(
+                "The selected submissions use different "
+                "official baselines."
+            )
+
+        elif (
+            submission_a["baseline_number"]
+            != selected_document["version_number"]
+        ):
+            st.error(
+                "Historical baseline comparison is not "
+                "available in this interface yet."
+            )
+
+        else:
+            try:
+                baseline_content = get_document_content(
+                    selected_document_id
+                )
+
+                content_a = get_submission_content(
+                    submission_a["id"]
+                )
+                content_b = get_submission_content(
+                    submission_b["id"]
+                )
+
+                result = compare_docx_bytes(
+                    selected_document["name"],
+                    baseline_content,
+                    submission_a["filename"],
+                    content_a,
+                    submission_b["filename"],
+                    content_b,
+                )
+
+                st.subheader("Comparison Summary")
+
+                metric_a, metric_b, metric_c = st.columns(3)
+
+                metric_a.metric(
+                    "First Submission Changes",
+                    len(result.changes_a),
+                )
+                metric_b.metric(
+                    "Second Submission Changes",
+                    len(result.changes_b),
+                )
+                metric_c.metric(
+                    "Potential Conflicts",
+                    len(result.conflicts),
+                )
+
+                for label, changes in (
+                    ("First Submission", result.changes_a),
+                    ("Second Submission", result.changes_b),
+                ):
+                    st.subheader(label)
+
+                    if not changes:
+                        st.info("No paragraph changes detected.")
+
+                    for index, change in enumerate(changes, 1):
+                        with st.expander(
+                            f"Change {index}: "
+                            f"{change.kind.upper()} "
+                            f"at baseline [{change.start}, "
+                            f"{change.end})"
+                        ):
+                            st.markdown("**Original:**")
+                            st.code(
+                                "\n".join(change.original)
+                                or "(empty)",
+                                language=None,
+                            )
+
+                            st.markdown("**Modified:**")
+                            st.code(
+                                "\n".join(change.modified)
+                                or "(empty)",
+                                language=None,
+                            )
+
+                st.subheader("Potential Conflicts")
+
+                if result.conflicts:
+                    st.warning(
+                        f"{len(result.conflicts)} overlapping "
+                        "change pair(s) require review."
+                    )
+
+                    for index, conflict in enumerate(
+                        result.conflicts, 1
+                    ):
+                        with st.expander(
+                            f"Conflict {index}",
+                            expanded=True,
+                        ):
+                            st.write("First submission:")
+                            st.code(
+                                "\n".join(
+                                    conflict.change_a.modified
+                                ) or "(deleted)",
+                                language=None,
+                            )
+
+                            st.write("Second submission:")
+                            st.code(
+                                "\n".join(
+                                    conflict.change_b.modified
+                                ) or "(deleted)",
+                                language=None,
+                            )
+
+                else:
+                    st.success(
+                        "No overlapping paragraph changes "
+                        "were detected."
+                    )
+
+                st.caption(
+                    "Diagnostic paragraph comparison only. "
+                    "No document has been merged or published."
+                )
+
+            except (DiffError, VersionError, DocumentError) as error:
+                st.error(str(error))
