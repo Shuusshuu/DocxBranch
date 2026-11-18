@@ -15,6 +15,13 @@ from docxbranch.versions import (
     get_document_content,
     list_documents,
 )
+from docxbranch.submissions import (
+    DEMO_AUTHORS,
+    SubmissionError,
+    create_submission,
+    get_submission_content,
+    list_submissions,
+)
 
 
 st.set_page_config(
@@ -189,3 +196,145 @@ else:
                     )
                 except VersionError as error:
                     st.error(str(error))
+
+# Employee submissions are separate from official document versions.
+st.divider()
+st.header("Employee Submissions")
+
+if not documents:
+    st.info(
+        "Create an official document baseline before "
+        "submitting changes."
+    )
+else:
+    document_options = {
+        f"{document['name']} (ID: {document['id']})": document
+        for document in documents
+    }
+
+    selected_document_label = st.selectbox(
+        "Select Document",
+        options=list(document_options.keys()),
+        key="submission_document",
+    )
+
+    selected_document = document_options[
+        selected_document_label
+    ]
+    selected_document_id = selected_document["id"]
+
+    st.caption(
+        "Current official baseline: "
+        f"v{selected_document['version_number']}.0"
+    )
+
+    selected_author = st.selectbox(
+        "Submitting Employee",
+        options=DEMO_AUTHORS,
+        key="submission_author",
+    )
+
+    submission_file = st.file_uploader(
+        "Upload Modified DOCX",
+        type=["docx"],
+        key=f"submission_upload_{selected_document_id}",
+    )
+
+    if submission_file is not None:
+        submission_content = submission_file.getvalue()
+
+        try:
+            preview = read_docx(
+                submission_file.name,
+                submission_content,
+            )
+
+            st.success(
+                f"Validated: {submission_file.name}"
+            )
+
+            st.caption(
+                f"{len(preview)} non-empty body paragraphs"
+            )
+
+            if st.button(
+                "Submit for Review",
+                type="primary",
+                key=f"submit_{selected_document_id}",
+            ):
+                try:
+                    submission_id = create_submission(
+                        document_id=selected_document_id,
+                        author=selected_author,
+                        filename=submission_file.name,
+                        content=submission_content,
+                    )
+
+                    st.success(
+                        "Submission saved successfully "
+                        f"(ID: {submission_id})."
+                    )
+
+                except SubmissionError as error:
+                    st.error(str(error))
+
+        except DocumentError as error:
+            st.error(str(error))
+
+    st.subheader("Submission History")
+
+    submissions = list_submissions(
+        selected_document_id
+    )
+
+    if not submissions:
+        st.info("No submissions for this document.")
+    else:
+        for submission in submissions:
+            with st.container(border=True):
+                col_info, col_download = st.columns(
+                    [3, 1]
+                )
+
+                with col_info:
+                    st.markdown(
+                        f"**Submission #{submission['id']}**"
+                    )
+                    st.write(
+                        f"Author: {submission['author']}"
+                    )
+                    st.caption(
+                        f"Baseline: "
+                        f"v{submission['baseline_number']}.0"
+                        f" | Status: {submission['status']}"
+                        f" | Submitted: "
+                        f"{submission['created_at']} UTC"
+                    )
+                    st.caption(
+                        f"File: {submission['filename']}"
+                    )
+
+                with col_download:
+                    try:
+                        stored_content = (
+                            get_submission_content(
+                                submission["id"]
+                            )
+                        )
+
+                        st.download_button(
+                            "Download",
+                            data=stored_content,
+                            file_name=submission["filename"],
+                            mime=(
+                                "application/vnd.openxmlformats-officedocument."
+                                "wordprocessingml.document"
+                            ),
+                            key=(
+                                f"submission_download_"
+                                f"{submission['id']}"
+                            ),
+                        )
+
+                    except VersionError as error:
+                        st.error(str(error))

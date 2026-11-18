@@ -70,6 +70,38 @@ CREATE INDEX IF NOT EXISTS idx_documents_project
 
 CREATE INDEX IF NOT EXISTS idx_versions_document
     ON versions(document_id);
+
+CREATE TABLE IF NOT EXISTS submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL,
+    baseline_version_id INTEGER NOT NULL,
+    author TEXT NOT NULL
+        CHECK (author IN ('Employee A', 'Employee B')),
+    file_id INTEGER NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (document_id)
+        REFERENCES documents(id)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (baseline_version_id)
+        REFERENCES versions(id)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (document_id, baseline_version_id)
+        REFERENCES versions(document_id, id)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (file_id)
+        REFERENCES stored_files(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_document
+    ON submissions(document_id, id);
+
 """
 
 

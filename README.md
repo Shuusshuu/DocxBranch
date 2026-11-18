@@ -72,17 +72,22 @@ Open `http://localhost:8501` in your browser.
 - Document retrieval and download
 - Duplicate initial baseline protection
 - Automated tests with pytest
+- Independent employee DOCX submissions
+- Submission author and timestamp tracking
+- Submission-to-baseline version references
+- Persistent submission history and downloads
+- Duplicate submission detection
+- Backend enforcement of document review locks
+
 
 ## Current Limitations
 
-- Local prototype without user authentication
-- Only body paragraphs and headings are previewed
-- DOCX formatting is preserved in storage but not rendered
-  in the preview
-- No employee submission or reviewer workflow yet
-- No change comparison, conflict resolution, or merging
-- No publication of subsequent official versions yet
+- Demo employee selection is not authentication
+- Reviewer workflows are not yet implemented
+- Document comparison and merging are not yet implemented
+- Subsequent official version publishing is not yet implemented
 - Database-level immutability enforcement is not complete
+
 
 ## Planned Features
 
