@@ -78,7 +78,16 @@ Open `http://localhost:8501` in your browser.
 - Persistent submission history and downloads
 - Duplicate submission detection
 - Backend enforcement of document review locks
-
+- Paragraph-level comparison against a common official baseline
+- Detection of paragraph insertions, deletions, and replacements
+- Heading-style change detection
+- Conservative overlapping-change conflict detection
+- Side-by-side submission selection and comparison summaries
+- Conservative DOCX structural safety inspection
+- Detection of unsupported tables, images, comments,
+  tracked changes, fields, and other document structures
+- Detection of empty paragraphs omitted by the current diff
+- Safety reports for baseline and employee submissions
 
 ## Current Limitations
 
@@ -87,7 +96,17 @@ Open `http://localhost:8501` in your browser.
 - Document comparison and merging are not yet implemented
 - Subsequent official version publishing is not yet implemented
 - Database-level immutability enforcement is not complete
-
+- DOCX tables, images, and other complex structures are not compared
+- Empty paragraphs are not included in the current comparison
+- Repeated identical paragraphs require manual review
+- Conflict detection is paragraph-level, not semantic
+- Comparison results are diagnostic and cannot yet be published
+- Historical baseline comparison is not yet supported in the UI
+- Safety inspection does not certify lossless DOCX merging
+- Automatic merging and version publishing remain disabled
+- Run-level formatting is not yet compared
+- Package-level relationship and XML changes are not fully analyzed
+- The safety validator is not a complete DOCX security scanner
 
 ## Planned Features
 
