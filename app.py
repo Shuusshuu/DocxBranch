@@ -34,6 +34,7 @@ from docxbranch.review import (
     cancel_review,
 )
 from docxbranch.decisions import DecisionError
+from docxbranch.candidate import CandidateError, preview_review_candidate
 from docxbranch.region_decisions import (
     register_regions,
     list_region_decisions,
@@ -638,10 +639,25 @@ else:
                                     )
                                     st.rerun()
                     if progress["complete"]:
-                        st.success(
-                            "All regions resolved. Merge and publication "
-                            "remain disabled pending safety validation."
-                        )
+                        st.success("All regions resolved. Candidate text preview is available.")
+                        try:
+                            candidate_lines = preview_review_candidate(active_review["id"])
+                            st.subheader("Candidate Paragraph Preview (Text Only)")
+                            st.caption(
+                                "Read-only diagnostic preview. Paragraph styles, run formatting, "
+                                "tables and other DOCX structures are not preserved here. "
+                                "This is NOT a merged DOCX or an official version."
+                            )
+                            st.code("\n".join(candidate_lines) or "(empty document)", language=None)
+                            st.download_button(
+                                "Download Candidate Text Preview (.txt)",
+                                data="\n".join(candidate_lines).encode("utf-8"),
+                                file_name=f"review_{active_review['id']}_candidate_preview.txt",
+                                mime="text/plain",
+                                key=f"candidate_text_{active_review['id']}",
+                            )
+                        except CandidateError as error:
+                            st.error(f"Candidate preview blocked: {error}")
                     else:
                         st.warning(
                             f"{progress['remaining']} region(s) still need decisions."
