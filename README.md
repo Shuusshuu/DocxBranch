@@ -4,20 +4,12 @@ A review-gated document version control system for Microsoft Word documents.
 
 DocxBranch aims to support collaborative document editing through controlled submissions, change reviews, conflict resolution, and immutable official versions.
 
-## Implemented Features
-
-- Upload and validate `.docx` files.
-- Preview non-empty body paragraphs and headings.
-- Display document paragraph count and file size.
-- Reject invalid, empty, and oversized files.
-- Run automated tests with pytest.
-
 ## Technology Stack
 
 - Python 3.13
 - Streamlit
 - python-docx
-- SQLite (planned)
+- SQLite
 - pytest
 
 ## Getting Started
@@ -95,16 +87,17 @@ Open `http://localhost:8501` in your browser.
 - Review cancellation with lock release
 - Persistent review records in SQLite
 - Persistent reviewer decisions stored in SQLite
-- Individual acceptance or rejection of paragraph changes
-- Baseline, Employee A, or Employee B conflict choices
-- Review decision updates during active sessions
-- Frozen comparison manifests linked to review submissions
-- Review completion progress tracking
+- Region-based review of independent and overlapping changes
+- Transitive overlap grouping into one conflict region
+- One authoritative resolution per review region (baseline, Employee A, or Employee B)
+- Persistent region decisions with progress tracking
+- Immutable region comparison manifests linked to frozen submissions
+- Preservation of legacy decision records without automatic migration
 
 ## Current Limitations
 
 - Authentication and role-based access control are not yet implemented; employee selection is for demonstration purposes only.
-- Review decisions can be recorded, but final approval and publication workflows are not yet implemented.
+- Region decisions can be recorded, but final approval and publication workflows are not yet implemented.
 - Review decisions are currently designed for one frozen submission from each of Employee A and Employee B; comprehensive multi-submission review is not yet supported.
 - Automatic document merging and subsequent official version publishing are not yet implemented.
 - Document comparison currently supports non-empty body paragraphs and paragraph styles only; tables, images, and other complex DOCX structures are excluded.
@@ -115,17 +108,16 @@ Open `http://localhost:8501` in your browser.
 - DOCX safety inspection does not guarantee lossless merging or provide comprehensive security validation.
 - Package-level relationships and XML changes are not fully analyzed.
 - Database-level immutability enforcement, including protection of frozen submission snapshots, is not yet complete.
-- Review decisions are stored independently for individual changes and conflicts, which may produce contradictory resolutions for the same document region.
+- Region decisions are not yet a validated, merge-ready plan; generating a safe candidate DOCX requires further structural and consistency checks.
+- Active reviews created with the legacy per-change decision model must be cancelled and restarted for region-based decisions; historical records are retained.
 
 ## Planned Features
 
-- Multi-project and multi-document management.
-- Immutable official document versions.
-- Independent employee submissions.
-- Document-level review locking.
-- Three-way comparison and conflict detection.
-- Reviewer-controlled change approval.
-- Approved document version publishing.
+- Validated, reviewer-controlled DOCX candidate generation
+- Immutable subsequent official document version publishing
+- Authentication and role-based reviewer permissions
+- Historical baseline comparison in the UI
+- More comprehensive DOCX structure and formatting support
 
 ## License
 

@@ -33,13 +33,14 @@ from docxbranch.review import (
     list_review_submissions,
     cancel_review,
 )
-from docxbranch.decisions import (
-    DecisionError,
-    register_review_items,
-    list_decisions,
-    save_decision,
-    get_decision_progress,
+from docxbranch.decisions import DecisionError
+from docxbranch.region_decisions import (
+    register_regions,
+    list_region_decisions,
+    save_region_decision,
+    get_region_progress,
 )
+
 
 st.set_page_config(
     page_title="DocxBranch",
@@ -490,176 +491,107 @@ else:
                 )
 
                 if st.button(
-                    "Prepare Review Items",
-                    key=f"prepare_review_{active_review['id']}",
+                    "Prepare Review Regions",
+                    key=f"prepare_regions_{active_review['id']}",
                 ):
-                    count = register_review_items(
+                    count = register_regions(
                         active_review["id"],
                         review_comparison,
                         review_a["id"],
                         review_b["id"],
                     )
-                    st.success(
-                        f"{count} review item(s) registered."
-                    )
+                    st.success(f"{count} review region(s) registered.")
                     st.rerun()
 
-                progress = get_decision_progress(
-                    active_review["id"]
-                )
-
+                progress = get_region_progress(active_review["id"])
                 if not progress["registered"]:
                     st.info(
-                        "Click Prepare Review Items to freeze "
-                        "the comparison and begin making decisions."
+                        "Prepare Review Regions to freeze the comparison. "
+                        "Existing reviews using the legacy model must be "
+                        "cancelled and restarted; their history is retained."
                     )
                 else:
-                    st.progress(
-                        progress["decided"]
-                        / max(progress["total"], 1)
-                    )
-
+                    st.progress(progress["decided"] / max(progress["total"], 1))
                     st.caption(
-                        f"{progress['decided']} of "
-                        f"{progress['total']} items reviewed."
+                        f"{progress['decided']} of {progress['total']} "
+                        "regions reviewed."
                     )
-
-                    review_items = list_decisions(
-                        active_review["id"]
-                    )
-
-                    for item in review_items:
-                        item_key = item["item_key"]
+                    for item in list_region_decisions(active_review["id"]):
+                        region_key = item["region_key"]
                         payload = item["payload"]
-
+                        conflict = payload["conflict"]
                         with st.container(border=True):
-                            if item["item_type"] == "change":
-                                st.markdown(
-                                    f"**{item_key} — "
-                                    f"{item['source']} Change**"
-                                )
-
-                                st.caption(
-                                    f"{payload['kind']} "
-                                    f"at baseline "
-                                    f"[{payload['start']}, "
-                                    f"{payload['end']})"
-                                )
-
-                                left, right = st.columns(2)
-
-                                with left:
-                                    st.write("Original")
-                                    st.code(
-                                        "\n".join(
-                                            str(value)
-                                            for value in payload["original"]
-                                        ) or "(empty)",
-                                        language=None,
-                                    )
-
-                                with right:
-                                    st.write("Modified")
-                                    st.code(
-                                        "\n".join(
-                                            str(value)
-                                            for value in payload["modified"]
-                                        ) or "(empty)",
-                                        language=None,
-                                    )
-
-                                choices = [
-                                    "Not reviewed",
-                                    "accept",
-                                    "reject",
-                                ]
-
-                            else:
-                                st.markdown(
-                                    f"**{item_key} — Conflict**"
-                                )
-
-                                left, right = st.columns(2)
-
-                                with left:
-                                    st.write("Employee A")
-                                    st.code(
-                                        "\n".join(
-                                            str(value)
-                                            for value in payload[
-                                                "employee_a"
-                                            ]["modified"]
-                                        ) or "(deleted)",
-                                        language=None,
-                                    )
-
-                                with right:
-                                    st.write("Employee B")
-                                    st.code(
-                                        "\n".join(
-                                            str(value)
-                                            for value in payload[
-                                                "employee_b"
-                                            ]["modified"]
-                                        ) or "(deleted)",
-                                        language=None,
-                                    )
-
-                                choices = [
-                                    "Not reviewed",
-                                    "baseline",
-                                    "A",
-                                    "B",
-                                ]
-
-                            current_decision = (
-                                item["decision"]
-                                or "Not reviewed"
+                            st.markdown(
+                                f"**{region_key} — "
+                                f"{'Conflict' if conflict else 'Independent Change'}**"
                             )
-
+                            st.caption(
+                                f"Baseline paragraph boundaries: "
+                                f"[{payload['start']}, {payload['end']})"
+                            )
+                            if conflict:
+                                st.warning(
+                                    "Both employees changed this region. "
+                                    "Choose exactly one authoritative source."
+                                )
+                            for author, key in (
+                                ("Employee A", "changes_a"),
+                                ("Employee B", "changes_b"),
+                            ):
+                                if payload[key]:
+                                    st.markdown(f"**{author}**")
+                                    for change in payload[key]:
+                                        st.caption(
+                                            f"{change['kind']} "
+                                            f"[{change['start']}, {change['end']})"
+                                        )
+                                        st.write("Baseline")
+                                        st.code(
+                                            "\n".join(change["original"]) or "(insertion)",
+                                            language=None,
+                                        )
+                                        st.write("Proposed")
+                                        st.code(
+                                            "\n".join(change["modified"]) or "(deletion)",
+                                            language=None,
+                                        )
+                            choices = ["Not reviewed", "baseline"]
+                            if payload["changes_a"]:
+                                choices.append("A")
+                            if payload["changes_b"]:
+                                choices.append("B")
+                            current = item["decision"] or "Not reviewed"
                             choice = st.selectbox(
-                                "Reviewer Decision",
-                                options=choices,
-                                index=choices.index(
-                                    current_decision
-                                ),
-                                key=(
-                                    f"decision_{active_review['id']}"
-                                    f"_{item_key}"
-                                ),
+                                "Final Region Resolution",
+                                choices,
+                                index=choices.index(current),
+                                key=f"region_choice_{active_review['id']}_{region_key}",
+                                format_func=lambda value: {
+                                    "Not reviewed": "Not reviewed",
+                                    "baseline": "Keep Official Baseline",
+                                    "A": "Use Employee A",
+                                    "B": "Use Employee B",
+                                }[value],
                             )
-
                             if st.button(
-                                "Save Decision",
-                                key=(
-                                    f"save_{active_review['id']}"
-                                    f"_{item_key}"
-                                ),
+                                "Save Region Decision",
+                                key=f"save_region_{active_review['id']}_{region_key}",
                             ):
                                 if choice == "Not reviewed":
-                                    st.warning(
-                                        "Select a decision first."
-                                    )
+                                    st.warning("Choose a resolution before saving.")
                                 else:
-                                    try:
-                                        save_decision(
-                                            active_review["id"],
-                                            item_key,
-                                            choice,
-                                        )
-                                        st.rerun()
-                                    except DecisionError as error:
-                                        st.error(str(error))
-
+                                    save_region_decision(
+                                        active_review["id"], region_key, choice
+                                    )
+                                    st.rerun()
                     if progress["complete"]:
                         st.success(
-                            "All review items have decisions. "
-                            "Ready for the future merge stage."
+                            "All regions resolved. Merge and publication "
+                            "remain disabled pending safety validation."
                         )
                     else:
                         st.warning(
-                            f"{progress['remaining']} "
-                            "item(s) still require review."
+                            f"{progress['remaining']} region(s) still need decisions."
                         )
 
             except (
