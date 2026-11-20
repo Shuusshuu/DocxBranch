@@ -94,11 +94,18 @@ Open `http://localhost:8501` in your browser.
 - Prevention of new submissions during active reviews
 - Review cancellation with lock release
 - Persistent review records in SQLite
+- Persistent reviewer decisions stored in SQLite
+- Individual acceptance or rejection of paragraph changes
+- Baseline, Employee A, or Employee B conflict choices
+- Review decision updates during active sessions
+- Frozen comparison manifests linked to review submissions
+- Review completion progress tracking
 
 ## Current Limitations
 
 - Authentication and role-based access control are not yet implemented; employee selection is for demonstration purposes only.
-- Review decisions and change approvals are not yet implemented.
+- Review decisions can be recorded, but final approval and publication workflows are not yet implemented.
+- Review decisions are currently designed for one frozen submission from each of Employee A and Employee B; comprehensive multi-submission review is not yet supported.
 - Automatic document merging and subsequent official version publishing are not yet implemented.
 - Document comparison currently supports non-empty body paragraphs and paragraph styles only; tables, images, and other complex DOCX structures are excluded.
 - Run-level formatting changes are not yet compared.
@@ -108,6 +115,7 @@ Open `http://localhost:8501` in your browser.
 - DOCX safety inspection does not guarantee lossless merging or provide comprehensive security validation.
 - Package-level relationships and XML changes are not fully analyzed.
 - Database-level immutability enforcement, including protection of frozen submission snapshots, is not yet complete.
+- Review decisions are stored independently for individual changes and conflicts, which may produce contradictory resolutions for the same document region.
 
 ## Planned Features
 
