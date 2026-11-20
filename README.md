@@ -88,25 +88,26 @@ Open `http://localhost:8501` in your browser.
   tracked changes, fields, and other document structures
 - Detection of empty paragraphs omitted by the current diff
 - Safety reports for baseline and employee submissions
+- Transactional document review sessions
+- Document-level review locking
+- Frozen submission snapshots for active reviews
+- Prevention of new submissions during active reviews
+- Review cancellation with lock release
+- Persistent review records in SQLite
 
 ## Current Limitations
 
-- Demo employee selection is not authentication
-- Reviewer workflows are not yet implemented
-- Document comparison and merging are not yet implemented
-- Subsequent official version publishing is not yet implemented
-- Database-level immutability enforcement is not complete
-- DOCX tables, images, and other complex structures are not compared
-- Empty paragraphs are not included in the current comparison
-- Repeated identical paragraphs require manual review
-- Conflict detection is paragraph-level, not semantic
-- Comparison results are diagnostic and cannot yet be published
-- Historical baseline comparison is not yet supported in the UI
-- Safety inspection does not certify lossless DOCX merging
-- Automatic merging and version publishing remain disabled
-- Run-level formatting is not yet compared
-- Package-level relationship and XML changes are not fully analyzed
-- The safety validator is not a complete DOCX security scanner
+- Authentication and role-based access control are not yet implemented; employee selection is for demonstration purposes only.
+- Review decisions and change approvals are not yet implemented.
+- Automatic document merging and subsequent official version publishing are not yet implemented.
+- Document comparison currently supports non-empty body paragraphs and paragraph styles only; tables, images, and other complex DOCX structures are excluded.
+- Run-level formatting changes are not yet compared.
+- Repeated identical paragraphs require manual review due to ambiguous alignment.
+- Conflict detection is paragraph-level and does not perform semantic analysis.
+- Historical baseline comparison is not yet supported in the UI.
+- DOCX safety inspection does not guarantee lossless merging or provide comprehensive security validation.
+- Package-level relationships and XML changes are not fully analyzed.
+- Database-level immutability enforcement, including protection of frozen submission snapshots, is not yet complete.
 
 ## Planned Features
 

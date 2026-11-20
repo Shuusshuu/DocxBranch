@@ -26,6 +26,13 @@ from docxbranch.diff import DiffError, compare_docx_bytes
 from docxbranch.safety import inspect_comparison
 from xml.etree.ElementTree import ParseError
 from zipfile import BadZipFile
+from docxbranch.review import (
+    ReviewError,
+    start_review,
+    get_active_review,
+    list_review_submissions,
+    cancel_review,
+)
 
 st.set_page_config(
     page_title="DocxBranch",
@@ -342,11 +349,130 @@ else:
                     except VersionError as error:
                         st.error(str(error))
 
+
+# Manage review sessions for the selected official document.
+st.divider()
+st.header("Review Management")
+
+if not documents:
+    st.info(
+        "Create an official document before starting a review."
+    )
+else:
+    active_review = get_active_review(
+        selected_document_id
+    )
+
+    if active_review is None:
+        st.info(
+            "No active review for the selected document."
+        )
+
+        pending_submissions = [
+            submission
+            for submission in submissions
+            if (
+                submission["status"] == "pending"
+                and submission["baseline_version_id"]
+                == selected_document["version_number"]
+            )
+        ]
+
+        st.caption(
+            f"{len(pending_submissions)} pending submission(s) "
+            "available for review."
+        )
+
+        if st.button(
+            "Start Review",
+            type="primary",
+            disabled=not pending_submissions,
+            key=f"start_review_{selected_document_id}",
+        ):
+            try:
+                review_id = start_review(
+                    selected_document_id
+                )
+
+                st.success(
+                    f"Review #{review_id} started successfully. "
+                    "This document is now locked."
+                )
+                st.rerun()
+
+            except ReviewError as error:
+                st.error(str(error))
+
+    else:
+        st.warning(
+            f"Review #{active_review['id']} is active. "
+            "New submissions are locked for this document."
+        )
+
+        st.caption(
+            f"Official Baseline: "
+            f"v{active_review['baseline_number']}.0"
+            f" | Started: {active_review['created_at']} UTC"
+        )
+
+        frozen_submissions = list_review_submissions(
+            active_review["id"]
+        )
+
+        st.subheader("Frozen Submission Snapshot")
+
+        for submission in frozen_submissions:
+            with st.container(border=True):
+                st.markdown(
+                    f"**Submission #{submission['id']}**"
+                )
+                st.write(
+                    f"Author: {submission['author']}"
+                )
+                st.caption(
+                    f"File: {submission['filename']}"
+                )
+
+        st.caption(
+            "The snapshot is fixed for this review. "
+            "Approval and publishing are not implemented yet."
+        )
+
+        st.divider()
+
+        confirm_cancel = st.checkbox(
+            "I understand that cancelling this review "
+            "will unlock the document without publishing "
+            "any changes.",
+            key=f"confirm_cancel_{active_review['id']}",
+        )
+
+        if st.button(
+            "Cancel Review",
+            disabled=not confirm_cancel,
+            key=f"cancel_review_{active_review['id']}",
+        ):
+            try:
+                cancel_review(active_review["id"])
+
+                st.success(
+                    "Review cancelled. "
+                    "The document is now unlocked."
+                )
+                st.rerun()
+
+            except ReviewError as error:
+                st.error(str(error))
+
 # Compare employee submissions against their common baseline.
 st.divider()
 st.header("Compare Submissions")
 
-if len(submissions) < 2:
+if not documents:
+    st.info(
+        "Create an official document before comparing submissions."
+    )
+elif len(submissions) < 2:
     st.info(
         "At least two submissions are required for comparison."
     )
