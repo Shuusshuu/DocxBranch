@@ -129,6 +129,35 @@ def register_regions(
         connection.close()
 
 
+def get_region_selection(
+    review_id: int,
+    db_path: str | Path = DEFAULT_DB_PATH,
+) -> dict | None:
+    """Read the A/B submission IDs frozen into a region review manifest.
+
+    Args:
+        review_id: Review session ID.
+        db_path: Location of the SQLite database.
+
+    Returns:
+        Frozen submission IDs, or None before region registration.
+    """
+    initialize_region_decisions(db_path)
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            """SELECT payload FROM region_review_items
+               WHERE review_id = ? AND region_key = '_manifest'""",
+            (review_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row["payload"])
+        return {
+            "submission_a_id": payload["submission_a_id"],
+            "submission_b_id": payload["submission_b_id"],
+        }
+
+
 def list_region_decisions(review_id: int, db_path: str | Path = DEFAULT_DB_PATH) -> list[dict]:
     """List all region items and their saved resolutions."""
     initialize_region_decisions(db_path)

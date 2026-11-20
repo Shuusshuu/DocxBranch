@@ -39,6 +39,7 @@ from docxbranch.region_decisions import (
     list_region_decisions,
     save_region_decision,
     get_region_progress,
+    get_region_selection,
 )
 
 
@@ -448,21 +449,73 @@ else:
 
         st.subheader("Review Decisions")
 
-        # Only the frozen Employee A/B submissions are eligible.
-        review_a = next(
-            (
-                item for item in frozen_submissions
-                if item["author"] == "Employee A"
-            ),
-            None,
-        )
-        review_b = next(
-            (
-                item for item in frozen_submissions
-                if item["author"] == "Employee B"
-            ),
-            None,
-        )
+        # Choose one submission per author from this review's frozen snapshot.
+        # After region registration, the chosen IDs are immutable.
+        frozen_selection = get_region_selection(active_review["id"])
+        submissions_by_id = {
+            item["id"]: item for item in frozen_submissions
+        }
+        employee_a_options = [
+            item for item in frozen_submissions
+            if item["author"] == "Employee A"
+        ]
+        employee_b_options = [
+            item for item in frozen_submissions
+            if item["author"] == "Employee B"
+        ]
+
+        if frozen_selection is None:
+            st.caption(
+                "Select one frozen submission per employee. "
+                "The selected pair will be locked when you prepare regions."
+            )
+            review_a = None
+            review_b = None
+            if employee_a_options:
+                selected_a_id = st.selectbox(
+                    "Employee A — Submission for Review",
+                    options=[item["id"] for item in employee_a_options],
+                    index=len(employee_a_options) - 1,
+                    format_func=lambda submission_id: (
+                        f"#{submission_id} — "
+                        f"{submissions_by_id[submission_id]['filename']} — "
+                        f"{submissions_by_id[submission_id]['created_at']} UTC"
+                    ),
+                    key=f"review_submission_a_{active_review['id']}",
+                )
+                review_a = submissions_by_id[selected_a_id]
+            if employee_b_options:
+                selected_b_id = st.selectbox(
+                    "Employee B — Submission for Review",
+                    options=[item["id"] for item in employee_b_options],
+                    index=len(employee_b_options) - 1,
+                    format_func=lambda submission_id: (
+                        f"#{submission_id} — "
+                        f"{submissions_by_id[submission_id]['filename']} — "
+                        f"{submissions_by_id[submission_id]['created_at']} UTC"
+                    ),
+                    key=f"review_submission_b_{active_review['id']}",
+                )
+                review_b = submissions_by_id[selected_b_id]
+        else:
+            review_a = submissions_by_id.get(
+                frozen_selection["submission_a_id"]
+            )
+            review_b = submissions_by_id.get(
+                frozen_selection["submission_b_id"]
+            )
+            if review_a is None or review_b is None:
+                st.error(
+                    "Frozen review selection references missing submissions. "
+                    "Do not continue until the database is checked."
+                )
+            else:
+                st.info(
+                    f"Frozen comparison: Employee A submission "
+                    f"#{review_a['id']} and Employee B submission "
+                    f"#{review_b['id']}. Selection cannot be changed "
+                    "during this review."
+                )
 
         if review_a is None or review_b is None:
             st.warning(
@@ -490,7 +543,7 @@ else:
                     employee_b_bytes,
                 )
 
-                if st.button(
+                if frozen_selection is None and st.button(
                     "Prepare Review Regions",
                     key=f"prepare_regions_{active_review['id']}",
                 ):
@@ -650,18 +703,38 @@ else:
     }
 
     labels = list(submission_options.keys())
+    latest_a = next(
+        (item for item in reversed(submissions)
+         if item["author"] == "Employee A"), None
+    )
+    latest_b = next(
+        (item for item in reversed(submissions)
+         if item["author"] == "Employee B"), None
+    )
+    preferred_a = next(
+        (label for label, item in submission_options.items()
+         if latest_a is not None and item["id"] == latest_a["id"]),
+        labels[0],
+    )
+    preferred_b = next(
+        (label for label, item in submission_options.items()
+         if latest_b is not None and item["id"] == latest_b["id"]),
+        labels[1],
+    )
+    if preferred_a == preferred_b:
+        preferred_b = next(label for label in labels if label != preferred_a)
 
     selected_a_label = st.selectbox(
         "First Submission",
         options=labels,
-        index=0,
+        index=labels.index(preferred_a),
         key="compare_submission_a",
     )
 
     selected_b_label = st.selectbox(
         "Second Submission",
         options=labels,
-        index=1,
+        index=labels.index(preferred_b),
         key="compare_submission_b",
     )
 

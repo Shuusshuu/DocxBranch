@@ -108,3 +108,92 @@ def test_legacy_decisions_are_preserved(review_workspace):
         register_regions(w.review_id, w.comparison, w.submission_a_id,
                          w.submission_b_id, w.db_path)
     assert list_decisions(w.review_id, w.db_path) == before
+
+
+def test_region_selection_is_frozen_after_registration(tmp_path):
+    """Keep the chosen submission IDs stable across repeated reads."""
+    from io import BytesIO
+    from docx import Document
+    from docxbranch.projects import create_project
+    from docxbranch.versions import create_initial_version
+    from docxbranch.submissions import create_submission
+    from docxbranch.review import start_review
+    from docxbranch.diff import compare_docx_bytes
+    from docxbranch.region_decisions import (
+        get_region_selection,
+        register_regions,
+    )
+
+    def make_docx(text):
+        """Create a simple DOCX fixture."""
+        doc = Document()
+        doc.add_paragraph(text)
+        buffer = BytesIO()
+        doc.save(buffer)
+        return buffer.getvalue()
+
+    db_path = tmp_path / "selection.db"
+    baseline = make_docx("Budget 100")
+    a_content = make_docx("Budget 105")
+    b_old = make_docx("Budget 110")
+    b_new = make_docx("Budget 120")
+    project_id = create_project("Selection", db_path=db_path)
+    document_id = create_initial_version(
+        project_id, "baseline.docx", baseline, db_path=db_path
+    )
+    a_id = create_submission(
+        document_id, "Employee A", "a.docx", a_content, db_path=db_path
+    )
+    old_id = create_submission(
+        document_id, "Employee B", "b_old.docx", b_old, db_path=db_path
+    )
+    new_id = create_submission(
+        document_id, "Employee B", "b_new.docx", b_new, db_path=db_path
+    )
+    review_id = start_review(document_id, db_path=db_path)
+    assert get_region_selection(review_id, db_path) is None
+    comparison = compare_docx_bytes(
+        "baseline.docx", baseline, "a.docx", a_content, "b_new.docx", b_new
+    )
+    register_regions(review_id, comparison, a_id, new_id, db_path)
+    assert get_region_selection(review_id, db_path) == {
+        "submission_a_id": a_id,
+        "submission_b_id": new_id,
+    }
+    assert old_id != new_id
+
+
+def test_frozen_selection_rejects_another_employee_b_submission(tmp_path):
+    """Prevent silently replacing the chosen B submission after preparation."""
+    from io import BytesIO
+    from docx import Document
+    from docxbranch.projects import create_project
+    from docxbranch.versions import create_initial_version
+    from docxbranch.submissions import create_submission
+    from docxbranch.review import start_review
+    from docxbranch.diff import compare_docx_bytes
+    from docxbranch.region_decisions import register_regions
+
+    def make_docx(text):
+        """Create a single-paragraph test document."""
+        doc = Document()
+        doc.add_paragraph(text)
+        output = BytesIO()
+        doc.save(output)
+        return output.getvalue()
+
+    db_path = tmp_path / "locked_selection.db"
+    baseline, a, b1, b2 = map(make_docx, ["100", "105", "110", "120"])
+    project_id = create_project("Lock test", db_path=db_path)
+    document_id = create_initial_version(
+        project_id, "base.docx", baseline, db_path=db_path
+    )
+    a_id = create_submission(document_id, "Employee A", "a.docx", a, db_path=db_path)
+    b1_id = create_submission(document_id, "Employee B", "b1.docx", b1, db_path=db_path)
+    b2_id = create_submission(document_id, "Employee B", "b2.docx", b2, db_path=db_path)
+    review_id = start_review(document_id, db_path=db_path)
+    original = compare_docx_bytes("base.docx", baseline, "a.docx", a, "b2.docx", b2)
+    alternate = compare_docx_bytes("base.docx", baseline, "a.docx", a, "b1.docx", b1)
+    register_regions(review_id, original, a_id, b2_id, db_path)
+    with pytest.raises(DecisionError, match="cannot be replaced"):
+        register_regions(review_id, alternate, a_id, b1_id, db_path)

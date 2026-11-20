@@ -91,14 +91,15 @@ Open `http://localhost:8501` in your browser.
 - Transitive overlap grouping into one conflict region
 - One authoritative resolution per review region (baseline, Employee A, or Employee B)
 - Persistent region decisions with progress tracking
-- Immutable region comparison manifests linked to frozen submissions
+- Reviewer-selected submission per employee from a frozen review snapshot
+- Immutable selected submission pair and region comparison manifest
 - Preservation of legacy decision records without automatic migration
 
 ## Current Limitations
 
 - Authentication and role-based access control are not yet implemented; employee selection is for demonstration purposes only.
 - Region decisions can be recorded, but final approval and publication workflows are not yet implemented.
-- Review decisions are currently designed for one frozen submission from each of Employee A and Employee B; comprehensive multi-submission review is not yet supported.
+- Each review compares one explicitly selected frozen submission per employee; combining multiple submissions from the same employee into one review is not yet supported.
 - Automatic document merging and subsequent official version publishing are not yet implemented.
 - Document comparison currently supports non-empty body paragraphs and paragraph styles only; tables, images, and other complex DOCX structures are excluded.
 - Run-level formatting changes are not yet compared.
