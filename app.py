@@ -35,6 +35,7 @@ from docxbranch.review import (
 )
 from docxbranch.decisions import DecisionError
 from docxbranch.candidate import CandidateError, preview_review_candidate
+from docxbranch.candidate_docx import export_candidate_docx
 from docxbranch.region_decisions import (
     register_regions,
     list_region_decisions,
@@ -649,6 +650,19 @@ else:
                                 "This is NOT a merged DOCX or an official version."
                             )
                             st.code("\n".join(candidate_lines) or "(empty document)", language=None)
+                            try:
+                                candidate_docx = export_candidate_docx(active_review["id"])
+                            except CandidateError as export_error:
+                                st.info(f"Plain-text DOCX export unavailable: {export_error}")
+                            else:
+                                st.download_button(
+                                    "Download Plain-Text Candidate (.docx)",
+                                    data=candidate_docx,
+                                    file_name=f"review_{active_review['id']}_candidate_plain_text.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    key=f"candidate_docx_{active_review['id']}",
+                                )
+                                st.caption("Reconstructed plain-text DOCX only; not a lossless merge or official version.")
                             st.download_button(
                                 "Download Candidate Text Preview (.txt)",
                                 data="\n".join(candidate_lines).encode("utf-8"),

@@ -97,13 +97,15 @@ Open `http://localhost:8501` in your browser.
 - Read-only candidate paragraph preview assembled from completed region decisions
 - Frozen review input and region-manifest verification before preview
 - Downloadable candidate text preview (.txt), without modifying official versions
+- Optional reconstructed plain-text candidate DOCX export for strictly validated simple inputs
+- DOCX export rejects unsupported body structures and run formatting; no official version is published
 
 ## Current Limitations
 
 - Authentication and role-based access control are not yet implemented; employee selection is for demonstration purposes only.
 - Region decisions can be recorded, but final approval and publication workflows are not yet implemented.
 - Each review compares one explicitly selected frozen submission per employee; combining multiple submissions from the same employee into one review is not yet supported.
-- Candidate text previews are supported, but automatic DOCX merging and subsequent official version publishing are not yet implemented.
+- Candidate text previews and restricted plain-text DOCX exports are supported, but lossless DOCX merging and official version publishing are not yet implemented.
 - Document comparison currently supports non-empty body paragraphs and paragraph styles only; tables, images, and other complex DOCX structures are excluded.
 - Run-level formatting changes are not yet compared.
 - Repeated identical paragraphs require manual review due to ambiguous alignment.
@@ -112,12 +114,12 @@ Open `http://localhost:8501` in your browser.
 - DOCX safety inspection does not guarantee lossless merging or provide comprehensive security validation.
 - Package-level relationships and XML changes are not fully analyzed.
 - Database-level immutability enforcement, including protection of frozen submission snapshots, is not yet complete.
-- Candidate previews reconstruct paragraph text only; DOCX formatting, paragraph styles, and complex structures are not preserved, so a safe candidate DOCX cannot yet be generated.
+- Exported candidate DOCX files are newly reconstructed plain-text documents; source styles, page setup, metadata, and rich formatting are not preserved. Files outside the strict plain-text subset are blocked.
 - Active reviews created with the legacy per-change decision model must be cancelled and restarted for region-based decisions; historical records are retained.
 
 ## Planned Features
 
-- Lossless, safety-validated DOCX candidate generation (beyond text-only preview)
+- Lossless, safety-validated DOCX candidate generation with formatting and structural preservation
 - Immutable subsequent official document version publishing
 - Authentication and role-based reviewer permissions
 - Historical baseline comparison in the UI
