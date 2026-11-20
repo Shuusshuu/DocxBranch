@@ -33,6 +33,13 @@ from docxbranch.review import (
     list_review_submissions,
     cancel_review,
 )
+from docxbranch.decisions import (
+    DecisionError,
+    register_review_items,
+    list_decisions,
+    save_decision,
+    get_decision_progress,
+)
 
 st.set_page_config(
     page_title="DocxBranch",
@@ -437,6 +444,231 @@ else:
             "The snapshot is fixed for this review. "
             "Approval and publishing are not implemented yet."
         )
+
+        st.subheader("Review Decisions")
+
+        # Only the frozen Employee A/B submissions are eligible.
+        review_a = next(
+            (
+                item for item in frozen_submissions
+                if item["author"] == "Employee A"
+            ),
+            None,
+        )
+        review_b = next(
+            (
+                item for item in frozen_submissions
+                if item["author"] == "Employee B"
+            ),
+            None,
+        )
+
+        if review_a is None or review_b is None:
+            st.warning(
+                "This review needs a frozen submission "
+                "from both Employee A and Employee B."
+            )
+        else:
+            try:
+                baseline_bytes = get_document_content(
+                    selected_document_id
+                )
+                employee_a_bytes = get_submission_content(
+                    review_a["id"]
+                )
+                employee_b_bytes = get_submission_content(
+                    review_b["id"]
+                )
+
+                review_comparison = compare_docx_bytes(
+                    selected_document["name"],
+                    baseline_bytes,
+                    review_a["filename"],
+                    employee_a_bytes,
+                    review_b["filename"],
+                    employee_b_bytes,
+                )
+
+                if st.button(
+                    "Prepare Review Items",
+                    key=f"prepare_review_{active_review['id']}",
+                ):
+                    count = register_review_items(
+                        active_review["id"],
+                        review_comparison,
+                        review_a["id"],
+                        review_b["id"],
+                    )
+                    st.success(
+                        f"{count} review item(s) registered."
+                    )
+                    st.rerun()
+
+                progress = get_decision_progress(
+                    active_review["id"]
+                )
+
+                if not progress["registered"]:
+                    st.info(
+                        "Click Prepare Review Items to freeze "
+                        "the comparison and begin making decisions."
+                    )
+                else:
+                    st.progress(
+                        progress["decided"]
+                        / max(progress["total"], 1)
+                    )
+
+                    st.caption(
+                        f"{progress['decided']} of "
+                        f"{progress['total']} items reviewed."
+                    )
+
+                    review_items = list_decisions(
+                        active_review["id"]
+                    )
+
+                    for item in review_items:
+                        item_key = item["item_key"]
+                        payload = item["payload"]
+
+                        with st.container(border=True):
+                            if item["item_type"] == "change":
+                                st.markdown(
+                                    f"**{item_key} — "
+                                    f"{item['source']} Change**"
+                                )
+
+                                st.caption(
+                                    f"{payload['kind']} "
+                                    f"at baseline "
+                                    f"[{payload['start']}, "
+                                    f"{payload['end']})"
+                                )
+
+                                left, right = st.columns(2)
+
+                                with left:
+                                    st.write("Original")
+                                    st.code(
+                                        "\n".join(
+                                            str(value)
+                                            for value in payload["original"]
+                                        ) or "(empty)",
+                                        language=None,
+                                    )
+
+                                with right:
+                                    st.write("Modified")
+                                    st.code(
+                                        "\n".join(
+                                            str(value)
+                                            for value in payload["modified"]
+                                        ) or "(empty)",
+                                        language=None,
+                                    )
+
+                                choices = [
+                                    "Not reviewed",
+                                    "accept",
+                                    "reject",
+                                ]
+
+                            else:
+                                st.markdown(
+                                    f"**{item_key} — Conflict**"
+                                )
+
+                                left, right = st.columns(2)
+
+                                with left:
+                                    st.write("Employee A")
+                                    st.code(
+                                        "\n".join(
+                                            str(value)
+                                            for value in payload[
+                                                "employee_a"
+                                            ]["modified"]
+                                        ) or "(deleted)",
+                                        language=None,
+                                    )
+
+                                with right:
+                                    st.write("Employee B")
+                                    st.code(
+                                        "\n".join(
+                                            str(value)
+                                            for value in payload[
+                                                "employee_b"
+                                            ]["modified"]
+                                        ) or "(deleted)",
+                                        language=None,
+                                    )
+
+                                choices = [
+                                    "Not reviewed",
+                                    "baseline",
+                                    "A",
+                                    "B",
+                                ]
+
+                            current_decision = (
+                                item["decision"]
+                                or "Not reviewed"
+                            )
+
+                            choice = st.selectbox(
+                                "Reviewer Decision",
+                                options=choices,
+                                index=choices.index(
+                                    current_decision
+                                ),
+                                key=(
+                                    f"decision_{active_review['id']}"
+                                    f"_{item_key}"
+                                ),
+                            )
+
+                            if st.button(
+                                "Save Decision",
+                                key=(
+                                    f"save_{active_review['id']}"
+                                    f"_{item_key}"
+                                ),
+                            ):
+                                if choice == "Not reviewed":
+                                    st.warning(
+                                        "Select a decision first."
+                                    )
+                                else:
+                                    try:
+                                        save_decision(
+                                            active_review["id"],
+                                            item_key,
+                                            choice,
+                                        )
+                                        st.rerun()
+                                    except DecisionError as error:
+                                        st.error(str(error))
+
+                    if progress["complete"]:
+                        st.success(
+                            "All review items have decisions. "
+                            "Ready for the future merge stage."
+                        )
+                    else:
+                        st.warning(
+                            f"{progress['remaining']} "
+                            "item(s) still require review."
+                        )
+
+            except (
+                DecisionError,
+                DiffError,
+                DocumentError,
+                VersionError,
+            ) as error:
+                st.error(str(error))
 
         st.divider()
 
